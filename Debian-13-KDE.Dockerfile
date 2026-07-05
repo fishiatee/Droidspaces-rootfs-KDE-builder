@@ -55,7 +55,7 @@ RUN chmod +x /usr/local/bin/download-firmware /etc/profile.d/ds-aliases.sh /usr/
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # 核心工具组件
-    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch \
+    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch pciutils fuse3 \
     # 用户请求的基础开发/编辑工具
     git nano  sudo \
     # 网络与 SSH 工具
@@ -69,7 +69,7 @@ RUN apt-get update && \
     if [ "$BUILD_KDE" = "min" ]; then \
         apt-get install -y --no-install-recommends \
         dbus-x11 x11-xserver-utils fonts-noto-cjk fonts-noto-color-emoji kde-plasma-desktop pipewire pipewire-pulse wireplumber powerdevil kscreen plasma-pa ark kwin-x11 upower konsole \
-        dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools  desktop-base dbus-user-session; \
+        dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools desktop-base dbus-user-session; \
     fi && \
     # 精简KDE
     if [ "$BUILD_KDE" = "conc" ]; then \
@@ -126,7 +126,7 @@ RUN apt-get update && \
     ## 压缩工具扩展 (可选)
     if [ "$ENABLE_zip_ARG" = "true" ]; then \
         apt-get install -y --no-install-recommends \
-        zip unzip p7zip-full bzip2 xz-utils tar gzip; \
+        zip unzip p7zip-full bzip2 xz-utils tar gzip zstd; \
     fi && \
     ## docker (可选)
     if [ "$ENABLE_docker_ARG" = "true" ]; then \
@@ -142,6 +142,30 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# dwarfs
+RUN cd $(mktemp -d) && \
+    wget https://github.com/mhx/dwarfs/releases/download/v0.15.5/dwarfs-universal-0.15.5-Linux-aarch64 \
+        -O dwarfs-wrapper && \
+    install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper && \
+    rm dwarfs-wrapper
+
+# fuse config
+RUN echo "user_allow_other" >> /etc/fuse.conf
+
+# hangover + dxvk
+RUN HO_TMP_DIR="$(mktemp -d)" && \
+    cd $HO_TMP_DIR && \
+    wget https://github.com/mikugirls/hangover/releases/download/hangover-11.13/hangover_11.13_debian13_trixie_arm64.tar \
+        -O hangover.tar && \
+    tar -xf hangover.tar && \
+    dpkg -i *.deb || true && \
+    apt install -y --no-install-recommends -f && \
+    tar -xf dxvk-3.0.1.tar.gz && \
+    mkdir -p /usr/share/dxvk && \
+    cp -r dxvk-3.0.1/* /usr/share/dxvk/ && \
+    rm -r -d -f $HO_TMP_DIR
+
 
 # 强制配置使用 iptables-legacy（这是兼容 Android 内核的硬性要求）
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
@@ -278,10 +302,7 @@ EOF_RUN
 # Mesa 驱动适配
 RUN if [ "$ENABLE_mesa_ARG" = "true" ]; then \
         echo "--> [开启] 正在下载并安装最新版 Mesa 驱动..." && \
-        URL=$(curl -s https://api.github.com/repos/lfdevs/mesa-for-android-container/releases/latest | \
-        jq -r '.assets[] | select(.name | test("mesa-for-android-container_.*_debian_trixie_arm64\\.tar\\.gz")) | .browser_download_url' | head -1) && \
-        if [ -z "$URL" ] || [ "$URL" = "null" ]; then echo "获取下载链接失败，可能是触发了 GitHub API 速率限制"; exit 1; fi && \
-        wget -q --tries=5 --waitretry=3 -O /tmp/mesa.tar.gz "$URL" && \
+        wget -q --tries=5 --waitretry=3 -O /tmp/mesa.tar.gz "https://github.com/lfdevs/mesa-for-android-container/releases/download/turnip-weekly/turnip-weekly_26.2.0-devel-20260713_debian_trixie_arm64.tar.gz" && \
         tar -zxf /tmp/mesa.tar.gz -C / && \
         rm /tmp/mesa.tar.gz && \
         ldconfig; \
