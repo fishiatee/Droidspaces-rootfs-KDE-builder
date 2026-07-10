@@ -254,8 +254,7 @@ After=network.target display-manager.service
 
 [Service]
 Type=simple
-User=${USERNAME}
-Group=${USERNAME}
+User=1000
 PAMName=login
 
 EnvironmentFile=-/etc/environment
@@ -277,7 +276,7 @@ After=network.target display-manager.service
 
 [Service]
 Type=simple
-User=${USERNAME}
+User=1000
 EnvironmentFile=-/etc/environment
 ExecStart=/bin/bash -lc 'DISPLAY=:5 startplasma-x11'
 Restart=no
@@ -298,8 +297,7 @@ After=network.target display-manager.service
 
 [Service]
 Type=simple
-User=${USERNAME}
-Group=${USERNAME}
+User=1000
 PAMName=login
 
 EnvironmentFile=-/etc/environment
