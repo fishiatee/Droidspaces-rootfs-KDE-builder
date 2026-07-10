@@ -121,7 +121,7 @@ RUN apt-get update && \
     ## 压缩工具扩展 (可选)
     if [ "$ENABLE_zip_ARG" = "true" ]; then \
         apt-get install -y --no-install-recommends \
-        zip unzip p7zip-full bzip2 xz-utils tar gzip; \
+        zip unzip p7zip-full bzip2 xz-utils tar gzip zstd; \
     fi && \
     ## docker (可选)
     if [ "$ENABLE_docker_ARG" = "true" ]; then \
@@ -138,12 +138,25 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# dwarfs
 RUN cd $(mktemp -d) && \
     wget https://github.com/mhx/dwarfs/releases/download/v0.15.4/dwarfs-universal-0.15.4-Linux-aarch64 \
         -O dwarfs-wrapper && \
     install -m 755 warfs-wrapper /usr/bin/dwarfs-wrapper
 
+# fuse config
 RUN echo "user_allow_other" >> /etc/fuse.conf
+
+# hangover + dxvk
+RUN cd $(mktemp -d) && \
+    wget https://nightly.link/mikugirls/hangover/workflows/deb/main/hangover_11.12-26-g16163897_debian13_trixie_arm64.tar.zip \
+        -O hangover.tar.zip && \
+    unzip hangover.tar.zip && \
+    tar -xf hangover_11.12-26-g16163897_debian13_trixie_arm64.tar && \
+    apt install -y --no-install-recommends *.deb && \
+    tar -xf dxvk-3.0.1.tar.gz
+    mkdir -p /usr/share/dxvk && \
+    cp -r dxvk-3.0.1/* /usr/share/dxvk/
 
 # 强制配置使用 iptables-legacy（这是兼容 Android 内核的硬性要求）
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
