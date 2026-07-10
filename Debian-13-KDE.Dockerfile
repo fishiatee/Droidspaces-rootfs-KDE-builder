@@ -142,7 +142,7 @@ RUN apt-get update && \
 RUN cd $(mktemp -d) && \
     wget https://github.com/mhx/dwarfs/releases/download/v0.15.4/dwarfs-universal-0.15.4-Linux-aarch64 \
         -O dwarfs-wrapper && \
-    install -m 755 warfs-wrapper /usr/bin/dwarfs-wrapper
+    install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper
 
 # fuse config
 RUN echo "user_allow_other" >> /etc/fuse.conf
