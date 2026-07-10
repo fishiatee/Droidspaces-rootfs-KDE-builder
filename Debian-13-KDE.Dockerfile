@@ -153,7 +153,8 @@ RUN cd $(mktemp -d) && \
         -O hangover.tar.zip && \
     unzip hangover.tar.zip && \
     tar -xf hangover_11.12-26-g16163897_debian13_trixie_arm64.tar && \
-    apt install -y --no-install-recommends *.deb && \
+    dpkg -i *.deb || true && \
+    apt install -y --no-install-recommends -f && \
     tar -xf dxvk-3.0.1.tar.gz && \
     mkdir -p /usr/share/dxvk && \
     cp -r dxvk-3.0.1/* /usr/share/dxvk/
