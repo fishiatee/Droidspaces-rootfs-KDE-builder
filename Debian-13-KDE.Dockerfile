@@ -63,7 +63,7 @@ RUN apt-get update && \
     if [ "$BUILD_KDE" = "min" ]; then \
         apt-get install -y --no-install-recommends \
         dbus-x11 x11-xserver-utils fonts-noto-cjk fonts-noto-color-emoji kde-plasma-desktop pipewire pipewire-pulse wireplumber powerdevil kscreen plasma-pa ark kwin-x11 upower konsole \
-        dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools desktop-base dbus-user-session maliit-keyboard; \
+        dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools desktop-base dbus-user-session; \
     fi && \
     # 精简KDE
     if [ "$BUILD_KDE" = "conc" ]; then \
@@ -72,7 +72,7 @@ RUN apt-get update && \
         dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools  desktop-base dbus-user-session aha clinfo dmidecode libdisplay-info-bin wayland-utils xserver-xorg \
         kfind plasma-systemmonitor filelight glmark2 vkmark systemsettings kde-config-screenlocker kio-extras xdg-user-dirs dolphin-plugins ffmpegthumbs kdegraphics-thumbnailers \
         kimageformat6-plugins webext-plasma-browser-integration libcanberra-pulse gstreamer1.0-plugins-base gstreamer1.0-plugins-good sound-theme-freedesktop chromium chromium-l10n \
-        systemsettings kde-config-screenlocker kio-extras xdg-user-dirs maliit-keyboard; \
+        systemsettings kde-config-screenlocker kio-extras xdg-user-dirs; \
     fi && \
     # mobile版KDE
     if [ "$BUILD_KDE" = "mobile" ]; then \
@@ -140,6 +140,13 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+RUN cd $(mktemp -d) && \
+    wget https://github.com/mhx/dwarfs/releases/download/v0.15.4/dwarfs-universal-0.15.4-Linux-aarch64 \
+        -O dwarfs-wrapper && \
+    install -m 755 warfs-wrapper /usr/bin/dwarfs-wrapper
+
+RUN echo "user_allow_other" >> /etc/fuse.conf
 
 # 强制配置使用 iptables-legacy（这是兼容 Android 内核的硬性要求）
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
