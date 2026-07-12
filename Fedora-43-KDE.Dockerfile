@@ -20,16 +20,21 @@ ARG USERNAME
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# 加速下载
+RUN echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf && \
+    echo "fastestmirror=True" >> /etc/dnf/dnf.conf && \
+    echo "defaultyes=True" >> /etc/dnf/dnf.conf
+
 # 复制本仓库内预编译的 anland_kde rpm 包
 COPY anland-build/Fedora43/kwin/*.rpm /tmp/anland-build/Fedora43/kwin/
 COPY anland-build/Fedora43/xwayland/*.rpm /tmp/anland-build/Fedora43/xwayland/
 
 RUN dnf install -y --setopt=install_weak_deps=False \
     # 核心工具组件 
-    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates bash-completion systemd-udev dbus-daemon systemd systemd-resolved fastfetch pciutils \
+    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates bash-completion systemd-udev dbus-daemon systemd systemd-pam systemd-resolved fastfetch pciutils \
     # 用户请求的基础开发/编辑工具
     git nano sudo \
-    # 网络与 SSH 工具 (Added dhcp-client here)
+    # 网络与 SSH 工具（包含 DHCP 客户端）
     openssh-server net-tools iptables iptables-legacy iputils iproute bind-utils dhcp-client \
     # 用于系统监控的 procps 进程工具
     procps-ng \
@@ -41,7 +46,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     if [ "$BUILD_KDE" = "min" ]; then \
         dnf install -y --setopt=install_weak_deps=False \
         dbus-x11 xrandr xset xrdb xhost google-noto-cjk-fonts google-noto-emoji-color-fonts plasma-desktop pipewire pipewire-pulseaudio wireplumber powerdevil kscreen plasma-pa ark kwin upower konsole \
-        dolphin kate kinfocenter glx-utils pulseaudio-utils vulkan-tools fedora-logos plasma-workspace plasma-workspace-x11 kwin-x11; \
+        dolphin kate kinfocenter glx-utils pulseaudio-utils vulkan-tools fedora-logos plasma-milou plasma-workspace plasma-workspace-x11 kwin-x11; \
     fi && \
     # 精简KDE
     if [ "$BUILD_KDE" = "conc" ]; then \
@@ -49,7 +54,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
         dbus-x11 xrandr xset xrdb xhost google-noto-cjk-fonts google-noto-emoji-color-fonts plasma-desktop pipewire pipewire-pulseaudio wireplumber powerdevil kscreen plasma-pa ark kwin upower konsole \
         dolphin kate kinfocenter glx-utils pulseaudio-utils vulkan-tools fedora-logos aha clinfo dmidecode libdisplay-info pciutils wayland-utils xorg-x11-server-Xorg \
         kfind plasma-systemmonitor filelight glmark2 vkmark systemsettings kscreenlocker kio-extras xdg-user-dirs dolphin-plugins ffmpegthumbs kdegraphics-thumbnailers \
-        kf6-kimageformats plasma-browser-integration libcanberra-gtk3 gstreamer1-plugins-base gstreamer1-plugins-good sound-theme-freedesktop chromium plasma-workspace plasma-workspace-x11 kwin-x11; \
+        kf6-kimageformats plasma-browser-integration libcanberra-gtk3 gstreamer1-plugins-base gstreamer1-plugins-good sound-theme-freedesktop chromium plasma-milou plasma-workspace plasma-workspace-x11 kwin-x11; \
     fi && \
     # mobile版KDE
     if [ "$BUILD_KDE" = "mobile" ]; then \
@@ -97,6 +102,18 @@ RUN dnf install -y --setopt=install_weak_deps=False \
         ln -sf /usr/local/etc/tmoe-linux/git/debian.sh /usr/local/bin/tmoe && \
         chmod -R 755 /usr/local/etc/tmoe-linux; \
     fi && \
+    for desktop_file in /usr/share/applications/*chromium*.desktop; do \
+        if [ -f "$desktop_file" ]; then \
+            sed -i 's/^Exec=\([^ ]*chromium[^ ]*\)/Exec=\1 --no-sandbox --test-type --password-store=basic/g' "$desktop_file"; \
+        fi; \
+    done && \
+    echo '#!/bin/bash' > /usr/local/bin/chromium-browser && \
+    echo 'exec /usr/bin/chromium-browser --no-sandbox --test-type --password-store=basic "$@"' >> /usr/local/bin/chromium-browser && \
+    chmod +x /usr/local/bin/chromium-browser && \
+    echo '#!/bin/bash' > /usr/local/bin/chromium && \
+    echo 'exec /usr/bin/chromium --no-sandbox --test-type --password-store=basic "$@"' >> /usr/local/bin/chromium && \
+    chmod +x /usr/local/bin/chromium && \
+    dnf upgrade -y && \
     dnf clean all && \
     rm -rf /var/cache/dnf
 
@@ -236,7 +253,7 @@ EOF
     mkdir -p /etc/systemd/system/multi-user.target.wants
     ln -sf /etc/systemd/system/plasma-mobile.service /etc/systemd/system/multi-user.target.wants/plasma-mobile.service
     fi
-    if [ "$BUILD_KDE_plus" = "true" ] && [ "$BUILD_KDE" != "mobile" ] ; then
+    if [ "$BUILD_KDE_plus" = "true" ] && [ "$ENABLE_anland_kde_ARG" = "false" ] && [ "$BUILD_KDE" != "mobile" ] ; then
     cat <<EOF > /etc/systemd/system/plasma-x11.service
 [Unit]
 Description=Start Plasma X11
@@ -362,7 +379,7 @@ if [ "$ENABLE_yj_ARG" = "true" ]; then
         fi
     done
 else
-    # ORIGINAL MASKING REVERTED: Keeping the original block that nullifies daemons
+    # 未启用硬件支持时，屏蔽容器内不需要的系统服务
     for service in systemd-udevd.service systemd-resolved.service systemd-networkd.service NetworkManager.service; do
         ln -sf /dev/null "/etc/systemd/system/$service"
     done
@@ -391,7 +408,7 @@ for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-sett
     printf "[Unit]\nConditionPathIsReadWrite=\n" > "/etc/systemd/system/${unit}.d/99-readonly-fix.conf"
 done
 
-# ORIGINAL CONDITION REVERTED: Re-adding the netmode limits block
+# 仅在 NAT 或网关网络模式下启动网络服务
 for unit in NetworkManager.service dhcpcd.service systemd-resolved.service systemd-networkd.service; do
     if [ -f "$GUEST_SYSTEMD_PATH/$unit" ] || [ -f "/etc/systemd/system/multi-user.target.wants/$unit" ]; then
         mkdir -p "/etc/systemd/system/${unit}.d"
@@ -414,14 +431,11 @@ EOF
     fi
 done
 
-# --- 3. Droidspaces NAT & DNS Fallback Fix ---
-# Force standard glibc resolution and disable systemd-resolved dependency
-rm -f /etc/resolv.conf
-echo 'nameserver 8.8.8.8' > /etc/resolv.conf
-echo 'nameserver 1.1.1.1' >> /etc/resolv.conf
+# --- 3. Droidspaces NAT 与 DNS 兼容修复 ---
+# 使用标准 glibc 域名解析，/etc/resolv.conf 由 Droidspaces 或 DHCP 解析器管理
 sed -i 's/^hosts:.*/hosts: files dns myhostname/' /etc/nsswitch.conf
 
-# Create Root-level DHCP Bypass Service for NAT mode
+# 为 NAT 模式创建以 root 权限运行的 DHCP 服务
 cat > /etc/systemd/system/ds-dhcp.service << 'EOF_DHCP'
 [Unit]
 Description=Droidspaces NAT DHCP (Root Bypass)
@@ -429,6 +443,7 @@ After=network.target
 
 [Service]
 Type=forking
+ExecCondition=/bin/sh -c "grep -qE 'net_mode=(nat|gateway)' /run/droidspaces/container.config"
 ExecStart=/usr/sbin/dhclient
 Restart=on-failure
 

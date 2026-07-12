@@ -31,9 +31,10 @@ The goal is to reduce the amount of manual setup required to run a desktop Linux
 | `Ubuntu-25-KDE` | `ubuntu:25.10` | `min`, `conc`, `none` | Not supported | Supports `nosnap`. |
 | `Ubuntu-26-KDE` | `ubuntu:26.04` | `min`, `conc`, `mobile`, `none` | Supported | Supports `nosnap`; recommended for Anland KDE. |
 | `Fedora-43-KDE` | `fedora:43` | `min`, `conc`, `mobile`, `none` | Supported | Some devices require hardware access to avoid flicker or crashes. |
+| `Fedora-44-KDE` | `fedora:44` | `min`, `conc`, `mobile`, `none` | Experimental | Wayland uses patched KWin/Xwayland RPMs built in Fedora 44. |
 | `Arch-KDE` | `ogarcia/archlinux` | `min`, `conc`, `none` | Not supported | Kernel 5.10 or newer is recommended; this project's QEMU/binfmt flow is not recommended for Arch at the moment. |
 
-`all` builds every Dockerfile template. `all-wayland` builds only the Wayland-capable targets, currently `Debian-13-KDE`, `Ubuntu-26-KDE`, and `Fedora-43-KDE`, and forces Wayland support on.
+`all` builds every Dockerfile template. `all-wayland` builds only the Wayland-capable targets, currently `Debian-13-KDE`, `Ubuntu-26-KDE`, `Fedora-43-KDE`, and `Fedora-44-KDE`, and forces Wayland support on.
 
 ## Feature Overview
 
@@ -100,7 +101,7 @@ Audio mode details:
 3. Select the Chinese workflow `编译并发布 Droidspaces RootFS` or the English workflow `Build and Release Droidspaces RootFS`.
 4. Click `Run workflow`.
 5. Choose the distribution, KDE mode, username, and feature toggles.
-6. For Wayland/Anland builds, choose `Ubuntu-26-KDE`, `Debian-13-KDE`, or `Fedora-43-KDE`, then enable `enable_anland_kde`.
+6. For Wayland/Anland builds, choose `Ubuntu-26-KDE`, `Debian-13-KDE`, `Fedora-43-KDE`, or `Fedora-44-KDE`, then enable `enable_anland_kde`.
 7. If you want to rebuild the patched KWin/Xwayland packages before building the RootFS, enable `build_wayland_packages`.
 8. Wait for the workflow to finish. Build time depends on the number of targets, KDE mode, and GitHub runner availability.
 9. Open the `Releases` page and download the generated `.tar.xz` RootFS.
@@ -189,7 +190,20 @@ startplasma-wayland
 
 ## Wayland and Anland Setup
 
-Wayland support depends on [anland](https://github.com/superturtlee/anland) and the patched KWin/Xwayland prebuilt packages stored in this repository. `Ubuntu-26-KDE` is recommended, while `Debian-13-KDE` and `Fedora-43-KDE` are also supported.
+Wayland support depends on [anland](https://github.com/superturtlee/anland) and the patched KWin/Xwayland prebuilt packages stored in this repository. `Ubuntu-26-KDE` is recommended, while `Debian-13-KDE`, `Fedora-43-KDE`, and the experimental `Fedora-44-KDE` are also available. Fedora 44 uses the Fedora 43 Anland build script but rebuilds the RPMs inside a Fedora 44 container.
+
+### One-Click Installation of anland-build Packages
+
+`anland-build/install.sh` automatically detects the current Linux distribution, installs the matching patched KWin/Xwayland packages, and prevents system updates from overwriting them. If the distribution repositories contain newer versions, the script allows the affected packages to be downgraded to the patched versions included in this repository. Packages that are already held can be updated and then placed on hold again.
+The script reads the system language in `LC_ALL`, `LC_MESSAGES`, and `LANG` priority order. Chinese locales produce Chinese messages; all other locales produce English messages.
+
+The installer supports Debian 13, Ubuntu 26.04, Fedora 43, and Fedora 44 on ARM64/aarch64 only. Debian and Ubuntu use `apt-mark hold`, while Fedora uses `exclude` entries in `/etc/dnf/dnf.conf` to provide equivalent package locking.
+
+Run it from the repository root:
+
+```bash
+sudo ./anland-build/install.sh
+```
 
 Recommended build options:
 
@@ -376,6 +390,7 @@ Ubuntu-26-KDE-Wayland-Droidspaces-rootfs-aarch64-local.tar.xz
 ├── Arch-KDE.Dockerfile
 ├── Debian-13-KDE.Dockerfile
 ├── Fedora-43-KDE.Dockerfile
+├── Fedora-44-KDE.Dockerfile
 ├── Ubuntu-24-KDE.Dockerfile
 ├── Ubuntu-25-KDE.Dockerfile
 ├── Ubuntu-26-KDE.Dockerfile
@@ -392,8 +407,10 @@ Ubuntu-26-KDE-Wayland-Droidspaces-rootfs-aarch64-local.tar.xz
 │   ├── qemu-binfmt-register.service
 │   └── qemu-binfmt-register.sh
 ├── anland-build/
+│   ├── install.sh
 │   ├── Debian13/
 │   ├── Fedora43/
+│   ├── Fedora44/
 │   └── ubuntu2604/
 └── .github/workflows/
     ├── build-kde-wayland.yml
@@ -402,7 +419,7 @@ Ubuntu-26-KDE-Wayland-Droidspaces-rootfs-aarch64-local.tar.xz
     └── clear.yml
 ```
 
-`anland-build/` stores patched KWin and Xwayland prebuilt packages. `build-kde-wayland.yml` can rebuild those packages and commit the updates back to the repository. The current Chinese RootFS workflow filename contains a leading space: `.github/workflows/ build-rootfs-releases.yml`.
+`anland-build/` stores the patched KWin and Xwayland prebuilt packages together with the one-click installer. `build-kde-wayland.yml` can rebuild those packages and commit the updates back to the repository. The current Chinese RootFS workflow filename contains a leading space: `.github/workflows/ build-rootfs-releases.yml`.
 
 ## Known Limitations
 
