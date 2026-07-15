@@ -257,8 +257,6 @@ EOF
         cat <<'EOF' >> /etc/environment
 MESA_LOADER_DRIVER_OVERRIDE=kgsl
 TU_DEBUG=noconform
-vblank_mode=3
-MESA_VK_WSI_PRESENT_MODE=mailbox
 EOF
     fi
 
