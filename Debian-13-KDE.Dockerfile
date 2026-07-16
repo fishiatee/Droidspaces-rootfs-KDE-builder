@@ -148,7 +148,7 @@ RUN apt-get update && \
 
 # dwarfs
 RUN cd $(mktemp -d) && \
-    wget https://github.com/mhx/dwarfs/releases/download/v0.15.4/dwarfs-universal-0.15.4-Linux-aarch64 \
+    wget https://github.com/mhx/dwarfs/releases/download/v0.15.5/dwarfs-universal-0.15.5-Linux-aarch64 \
         -O dwarfs-wrapper && \
     install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper && \
     rm dwarfs-wrapper
