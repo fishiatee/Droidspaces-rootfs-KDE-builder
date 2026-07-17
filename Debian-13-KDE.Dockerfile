@@ -204,6 +204,7 @@ RUN if [ "$ENABLE_anland_kde_ARG" != "true" ]; then \
         echo "ANLAND_SOCKET=/run/display.sock" >> /etc/environment; \
         echo "ANLAND_DRM_DEVICE=/dev/dri/renderD128" >> /etc/environment; \
         echo "MESA_LOADER_DRIVER_OVERRIDE=zink" >> /etc/environment; \
+        echo "GALLIUM_DRIVER=zink" >> /etc/environment; \
         echo "FD_FORCE_KGSL=1" >> /etc/environment; \
     fi
 
