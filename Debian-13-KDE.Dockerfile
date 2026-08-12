@@ -302,7 +302,10 @@ EOF_RUN
 # Mesa 驱动适配
 RUN if [ "$ENABLE_mesa_ARG" = "true" ]; then \
         echo "--> [开启] 正在下载并安装最新版 Mesa 驱动..." && \
-        wget -q --tries=5 --waitretry=3 -O /tmp/mesa.tar.gz "https://github.com/lfdevs/mesa-for-android-container/releases/download/turnip-weekly/turnip-weekly_26.2.0-devel-20260713_debian_trixie_arm64.tar.gz" && \
+        URL=$(curl -s https://api.github.com/repos/lfdevs/mesa-for-android-container/releases/latest | \
+        jq -r '.assets[] | select(.name | test("mesa-for-android-container_.*_debian_trixie_arm64\\.tar\\.gz")) | .browser_download_url' | head -1) && \
+        if [ -z "$URL" ] || [ "$URL" = "null" ]; then echo "获取下载链接失败，可能是触发了 GitHub API 速率限制"; exit 1; fi && \
+        wget -q --tries=5 --waitretry=3 -O /tmp/mesa.tar.gz "$URL" && \
         tar -zxf /tmp/mesa.tar.gz -C / && \
         rm /tmp/mesa.tar.gz && \
         ldconfig; \
