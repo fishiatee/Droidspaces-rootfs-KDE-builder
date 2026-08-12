@@ -33,9 +33,9 @@ The goal is to reduce the amount of manual setup required to run a desktop Linux
 | `Ubuntu-26-KDE` | `ubuntu:26.04` | `min`, `conc`, `mobile`, `none` | Supported | Supports `nosnap`; recommended for Anland KDE. |
 | `Fedora-43-KDE` | `fedora:43` | `min`, `conc`, `mobile`, `none` | Supported | Some devices require hardware access to avoid flicker or crashes. |
 | `Fedora-44-KDE` | `fedora:44` | `min`, `conc`, `mobile`, `none` | Supported | Some devices require hardware access. |
-| `Arch-KDE` | `ogarcia/archlinux` | `min`, `conc`, `none` | Not supported | Kernel 5.10 or newer is recommended; this project's QEMU/binfmt flow is not recommended for Arch at the moment. |
+| `Arch-KDE` | `ogarcia/archlinux` | `min`, `conc`, `mobile`, `none` | Supported | Uses ARM64 Arch patched KWin/Xwayland; this project's QEMU/binfmt flow is not recommended for Arch at the moment. |
 
-`all` builds every Dockerfile template. `all-wayland` builds only the Wayland-capable targets, currently `Debian-13-KDE`, `Ubuntu-26-KDE`, `Fedora-43-KDE`, and `Fedora-44-KDE`, and forces Wayland support on.
+`all` builds every Dockerfile template. For `min`, `conc`, and `mobile`, `all-wayland` builds `Debian-13-KDE`, `Ubuntu-26-KDE`, `Fedora-43-KDE`, `Fedora-44-KDE`, and `Arch-KDE`; `mobile` forces Wayland on.
 
 ## Feature Overview
 
@@ -54,7 +54,7 @@ The goal is to reduce the amount of manual setup required to run a desktop Linux
 - Optional compression utilities such as `zip`, `unzip`, `7z`, `xz`, `tar`, and `gzip`.
 - Optional Docker packages inside the RootFS.
 - Optional old-kernel systemd compatibility: on apt, dnf, or pacman targets whose systemd major version is above 257, build and install `v257-stable`; Debian 13 and other 257-or-older systems are skipped automatically.
-- Stable Wayland/Anland support for Debian 13, Ubuntu 26.04, Fedora 43, and Fedora 44 through patched KWin and Xwayland packages.
+- Stable ARM64 Wayland/Anland support for Debian 13, Ubuntu 26.04, Fedora 43/44, and Arch Linux through patched KWin and Xwayland packages.
 - USB device management on every distribution through Droidspaces USB Manager, including USB storage, ADB device nodes, mounting, unmounting, and a system tray interface.
 - Automatic Release publishing with the RootFS `.tar.xz` files and matching audio startup scripts.
 
@@ -68,11 +68,11 @@ The main GitHub Actions inputs are:
 | Custom username (`custom_username`) | String | `Gold` | Default user inside the RootFS. The audio startup script in the Release is patched with this username. |
 | KDE desktop choice (`build_KDE`) | `conc`, `min`, `mobile`, `none` | `min` | KDE desktop size. `none` builds a command-line only RootFS. |
 | KDE desktop auto-start (`build_KDE_plus`) | `true`, `false` | `true` | Creates a systemd service to auto-start KDE. Requires a KDE mode other than `none`; turn it off when building `none`. |
-| Wayland support (`enable_anland_kde`) | `true`, `false` | `false` | Enables Wayland/Anland support on Debian 13, Ubuntu 26, Fedora 43, and Fedora 44. |
+| Wayland support (`enable_anland_kde`) | `true`, `false` | `false` | Enables Wayland/Anland support on Debian 13, Ubuntu 26, Fedora 43/44, and Arch. |
 | PulseAudio forwarding (`PulseAudio`) | `socket`, `tcp`, `none` | `socket` | Audio forwarding mode for X11 builds. It is forced to `none` when Anland is enabled. |
 | Chinese language and timezone (`enable_zh_tz`) | `true`, `false` | `false` in the English workflow | Enables Chinese locale and the Shanghai timezone. |
 | Qualcomm Snapdragon GPU support (`enable_mesa`) | `true`, `false` | `true` | Enables Qualcomm Snapdragon GPU and Mesa-related support. |
-| Fix Snapdragon 8 Gen 2 Wayland display corruption (`enable_8gen2_wayland`) | `true`, `false` | `false` | Writes `FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1` to `/etc/environment` for Debian 13, Ubuntu 26, and Fedora 43/44. |
+| Fix Snapdragon 8 Gen 2 Wayland display corruption (`enable_8gen2_wayland`) | `true`, `false` | `false` | Writes `FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1` to `/etc/environment` for Debian 13, Ubuntu 26, Fedora 43/44, and Arch. |
 | Integrate TMOE (`enable_tmoe`) | `true`, `false` | `true` | Integrates TMOE. |
 | Remove Ubuntu Snap (`nosnap`) | `true`, `false` | `false` | Ubuntu-only option that removes Snap, snapd, and APT policy paths that may reinstall snapd. |
 | systemd 257 old-kernel compatibility (`enable_systemd257`) | `true`, `false` | `false` | When enabled, builds a `v257-stable` compatibility runtime if the current systemd major version is above 257; versions 257 and older are skipped. systemd-related packages are locked after the build to prevent replacement by upgrades. |
@@ -118,7 +118,7 @@ This option targets old Android kernels and is experimental. It adds substantial
 3. Select the Chinese workflow `编译并发布 Droidspaces RootFS` or the English workflow `Build and Release Droidspaces RootFS`.
 4. Click `Run workflow`.
 5. Choose the distribution, KDE mode, username, and feature toggles.
-6. For Wayland/Anland builds, choose `Ubuntu-26-KDE`, `Debian-13-KDE`, `Fedora-43-KDE`, or `Fedora-44-KDE`, then enable `enable_anland_kde`.
+6. For Wayland/Anland builds, choose `Ubuntu-26-KDE`, `Debian-13-KDE`, `Fedora-43-KDE`, `Fedora-44-KDE`, or `Arch-KDE`, then enable `enable_anland_kde`.
 7. If you want to rebuild the patched KWin/Xwayland packages before building the RootFS, enable `build_wayland_packages`.
 8. Wait for the workflow to finish. Build time depends on the number of targets, KDE mode, and GitHub runner availability.
 9. Open the `Releases` page and download the generated `.tar.xz` RootFS.
@@ -198,7 +198,7 @@ The actual auto-start behavior still depends on Droidspaces systemd support, per
 
 ### Wayland/Anland Mode
 
-Wayland/Anland mode applies to Debian 13, Ubuntu 26, Fedora 43, and Fedora 44 builds where `enable_anland_kde` is enabled. The default environment includes:
+Wayland/Anland mode applies to Debian 13, Ubuntu 26, Fedora 43/44, and Arch builds where `enable_anland_kde` is enabled. The default environment includes:
 
 ```text
 WAYLAND_DISPLAY=wayland-0
@@ -223,19 +223,29 @@ startplasmamobile
 
 ## Wayland and Anland Setup
 
-Wayland support depends on [anland](https://github.com/superturtlee/anland) and the patched KWin/Xwayland prebuilt packages stored in this repository. `Ubuntu-26-KDE` is recommended, while `Debian-13-KDE`, `Fedora-43-KDE`, and `Fedora-44-KDE` are also available. Fedora 44 now has stable Wayland/Anland support; it uses the Fedora 43 Anland build script but rebuilds the RPMs inside a Fedora 44 container.
+Wayland support depends on [anland](https://github.com/superturtlee/anland) and patched KWin/Xwayland prebuilt packages published through GitHub Releases. `Ubuntu-26-KDE` is recommended, while `Debian-13-KDE`, `Fedora-43-KDE`, `Fedora-44-KDE`, and `Arch-KDE` are also available. Arch rebuilds its packages in an ARM64 Arch container through `producers/kde/Arch_v5/build.sh` from the selected anland repository.
 
-### One-Click Installation of anland-build Packages
+### One-Click Installation of Anland KDE Release Packages
 
-`anland-build/install.sh` automatically detects the current Linux distribution, installs the matching patched KWin/Xwayland packages, and prevents system updates from overwriting them. If the distribution repositories contain newer versions, the script allows the affected packages to be downgraded to the patched versions included in this repository. Packages that are already held can be updated and then placed on hold again.
+`scripts/install-anland-kde.sh` automatically detects the current Linux distribution, uses `anland-kde-manifest` from the fixed rolling Release `anland-kde-packages` to select the exact archive, downloads the patched KWin/Xwayland packages by their KWin version, and prevents system updates from overwriting them. Binary packages are no longer added to Git history; this Release contains five independent archives for Arch, Debian 13, Ubuntu 26, Fedora 43, and Fedora 44. Archive names include the KWin version, for example `anland-kde-ubuntu2604-kwin-6.7.3-arm64.tar.gz`.
 The script reads the system language in `LC_ALL`, `LC_MESSAGES`, and `LANG` priority order. Chinese locales produce Chinese messages; all other locales produce English messages.
 
-The installer supports Debian 13, Ubuntu 26.04, Fedora 43, and Fedora 44 on ARM64/aarch64 only. Debian and Ubuntu use `apt-mark hold`, while Fedora uses `exclude` entries in `/etc/dnf/dnf.conf` to provide equivalent package locking.
+The installer supports Debian 13, Ubuntu 26.04, Fedora 43/44, and Arch Linux on ARM64/aarch64 only. It downloads, preflights, and extracts packages as the invoking user, then elevates only for installation. Debian and Ubuntu use installer-managed `apt-mark hold` state, Fedora uses a managed `excludepkgs` block in `/etc/dnf/dnf.conf`, and Arch uses pacman `IgnorePkg` entries for equivalent package locking.
 
 Run it from the repository root:
 
 ```bash
-sudo ./anland-build/install.sh
+sudo ./scripts/install-anland-kde.sh
+```
+
+On startup, the installer probes GitHub, `gh-proxy.com`, and `ghproxy.net` in that fixed order. A probe taking two seconds or longer is shown as a timeout; enter `1`, `2`, or `3` to choose a source. When a third-party mirror is selected, both the downloaded manifest and archive are verified against SHA-256 digests published by the GitHub Release API; this requires `jq`, `sha256sum`, and access to `api.github.com`. For non-interactive use, pass `-1` or `--1` to select GitHub directly and skip probing. GitHub Actions builds use `--1`.
+
+Or download the installer directly:
+
+```bash
+curl -fLO https://raw.githubusercontent.com/Goldzxcbug/Droidspaces-rootfs-KDE-builder/main/scripts/install-anland-kde.sh
+chmod +x install-anland-kde.sh
+sudo ./install-anland-kde.sh
 ```
 
 Recommended build options:
@@ -293,7 +303,7 @@ To install or update the application separately on an existing system, run this 
 sudo ./scripts/install-usb-manager.sh --user "$USER"
 ```
 
-Like `anland-build/install.sh`, this installer supports automatic privilege escalation, Chinese/English output, local-source preference, and an upstream source download fallback. If `--user` is omitted, it tries `SUDO_USER`, the logged-in user, and then the first regular user.
+Like `scripts/install-anland-kde.sh`, this installer supports automatic privilege escalation and Chinese/English output. If `--user` is omitted, it tries `SUDO_USER`, the logged-in user, and then the first regular user.
 
 ## Local Build
 
@@ -395,6 +405,7 @@ The script installs `zstd` and `linux-firmware`, so working package repositories
 │   ├── bashrc.sh
 │   ├── download-firmware
 │   ├── install-usb-manager.sh
+│   ├── install-anland-kde.sh
 │   ├── nosnap.sh
 │   ├── systemd257.sh
 │   ├── on_aaudio_socket.sh
@@ -402,26 +413,19 @@ The script installs `zstd` and `linux-firmware`, so working package repositories
 ├── scripts/binfmt/
 │   ├── qemu-binfmt-register.service
 │   └── qemu-binfmt-register.sh
-├── anland-build/
-│   ├── install.sh
-│   ├── Debian13/
-│   ├── Fedora43/
-│   ├── Fedora44/
-│   └── ubuntu2604/
 └── .github/workflows/
     ├── build-kde-wayland.yml
     ├── build-rootfs-releases-en.yml
-    ├──  build-rootfs-releases.yml
-    └── clear.yml
+    └── build-rootfs-releases.yml
 ```
 
-`anland-build/` stores the patched KWin and Xwayland prebuilt packages together with the one-click installer. `build-kde-wayland.yml` can rebuild those packages and commit the updates back to the repository. The current Chinese RootFS workflow filename contains a leading space: `.github/workflows/ build-rootfs-releases.yml`.
+KDE packages are published only as GitHub Release assets. When running `build-kde-wayland.yml` manually, `build_target=all` pins one Anland source commit and rebuilds all five platforms. If one platform fails, the workflow reuses that platform's archive from the fixed rolling Release, updates only the successful platforms, and rewrites the same `anland-kde-packages` Release with its archives and `anland-kde-manifest`. Selecting one platform rebuilds and replaces only that package; the other four archives remain unchanged. If the fixed Release cannot provide a complete five-platform set, or no new package succeeds, the workflow fails without updating the Release. It never commits packages or rewrites `main`; the fixed rolling Release is preserved.
 
 ## Known Limitations
 
-- Wayland/Anland support currently covers only Debian 13, Ubuntu 26, and Fedora 43/44.
-- Ubuntu 24, Ubuntu 25, and Arch currently use the X11 path.
-- `mobile` mode is allowed only on Debian 13, Ubuntu 26, and Fedora 43/44.
+- Wayland/Anland support covers Debian 13, Ubuntu 26, Fedora 43/44, and Arch.
+- Ubuntu 24 and Ubuntu 25 currently use the X11 path.
+- `mobile` mode is supported on Debian 13, Ubuntu 26, Fedora 43/44, and Arch.
 - When Anland is enabled, the workflow disables PulseAudio forwarding because the Anland app provides its own audio path.
 - Fedora may require hardware access on some devices to avoid flicker or crashes.
 - Ubuntu and Debian may lag or freeze if `noseccomp` is disabled or the kernel lacks `USER_NS`.

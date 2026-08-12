@@ -33,9 +33,9 @@
 | `Ubuntu-26-KDE` | `ubuntu:26.04` | `min`、`conc`、`mobile`、`none` | 支持 | 支持 `nosnap`，推荐用于 Anland KDE。 |
 | `Fedora-43-KDE` | `fedora:43` | `min`、`conc`、`mobile`、`none` | 支持 | 某些设备需要启用硬件访问。 |
 | `Fedora-44-KDE` | `fedora:44` | `min`、`conc`、`mobile`、`none` | 支持 | 某些设备需要启用硬件访问。 |
-| `Arch-KDE` | `ogarcia/archlinux` | `min`、`conc`、`none` | 不支持 | 内核建议 5.10 或更新；当前不建议使用本项目的 QEMU/binfmt 跨架构方案。 |
+| `Arch-KDE` | `ogarcia/archlinux` | `min`、`conc`、`mobile`、`none` | 支持 | 使用 ARM64 Arch patched KWin/Xwayland；当前不建议使用本项目的 QEMU/binfmt 跨架构方案。 |
 
-`all` 会构建全部 Dockerfile 模板。`all-wayland` 只构建支持 Wayland/Anland 的目标，也就是 `Debian-13-KDE`、`Ubuntu-26-KDE`、`Fedora-43-KDE` 和 `Fedora-44-KDE`，并强制启用 Wayland 支持。
+`all` 会构建全部 Dockerfile 模板。`all-wayland` 在 `min`、`conc` 和 `mobile` 模式下构建 `Debian-13-KDE`、`Ubuntu-26-KDE`、`Fedora-43-KDE`、`Fedora-44-KDE` 和 `Arch-KDE`；`mobile` 模式会强制启用 Wayland 支持。
 
 ## 功能概览
 
@@ -54,7 +54,7 @@
 - 压缩工具：可选安装 `zip`、`unzip`、`7z`、`xz`、`tar`、`gzip` 等工具。
 - Docker：可选在 RootFS 内安装 Docker 相关软件包。
 - 旧内核 systemd 兼容：可选在 systemd 主版本高于 257 的 apt、dnf 或 pacman 发行版中构建并安装 `v257-stable`；Debian 13 等已是 257 或更低版本时会自动跳过。
-- Wayland/Anland：对 Debian 13、Ubuntu 26.04、Fedora 43 和 Fedora 44 提供稳定的 patched KWin 与 Xwayland 包。
+- Wayland/Anland：对 Debian 13、Ubuntu 26.04、Fedora 43/44 和 Arch Linux 提供 ARM64 patched KWin 与 Xwayland 包。
 - USB 设备管理：全部发行版内置 Droidspaces USB Manager，支持 USB 存储、ADB 设备节点、挂载、卸载和系统托盘。
 - Release 自动发布：构建完成后会把 RootFS `.tar.xz` 和对应的音频启动脚本上传到 GitHub Release。
 
@@ -68,11 +68,11 @@ GitHub Actions 的主要输入项如下：
 | 自定义用户名 (`custom_username`) | 字符串 | `Gold` | RootFS 默认用户。Release 中的音频启动脚本会同步替换该用户名。 |
 | KDE 桌面选择 (`build_KDE`) | `conc`、`min`、`mobile`、`none` | `min` | KDE 桌面规模。`none` 表示只构建命令行环境。 |
 | KDE 桌面开机自启动 (`build_KDE_plus`) | `true`、`false` | `true` | 是否创建 KDE 自启动 systemd 服务。需要已安装 KDE；选择 `none` 桌面时应关闭。 |
-| Wayland 支持 (`enable_anland_kde`) | `true`、`false` | `false` | 是否启用 Wayland/Anland 支持。支持 Debian 13、Ubuntu 26、Fedora 43 和 Fedora 44。 |
+| Wayland 支持 (`enable_anland_kde`) | `true`、`false` | `false` | 是否启用 Wayland/Anland 支持。支持 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch。 |
 | PulseAudio 音频转发 (`PulseAudio`) | `socket`、`tcp`、`none` | `socket` | X11 模式下的音频转发方式。启用 Anland 时会被强制改为 `none`。 |
 | 使用中文语言和时区 (`enable_zh_tz`) | `true`、`false` | 中文工作流默认为 `true` | 启用中文 locale 并设置上海时区。 |
 | 高通骁龙 GPU 支持 (`enable_mesa`) | `true`、`false` | `true` | 启用高通 GPU/Mesa 相关支持。 |
-| 修复 8Gen2 Wayland 花屏 (`enable_8gen2_wayland`) | `true`、`false` | `false` | 为 Debian 13、Ubuntu 26、Fedora 43/44 写入 `FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1` 到 `/etc/environment`。 |
+| 修复 8Gen2 Wayland 花屏 (`enable_8gen2_wayland`) | `true`、`false` | `false` | 为 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch 写入 `FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1` 到 `/etc/environment`。 |
 | 集成 TMOE (`enable_tmoe`) | `true`、`false` | `true` | 集成 TMOE。 |
 | 移除 Ubuntu Snap (`nosnap`) | `true`、`false` | `false` | 只对 Ubuntu 有意义，用于移除 Snap、snapd 和可能重新安装 snapd 的 APT 策略。 |
 | systemd 257 旧内核兼容 (`enable_systemd257`) | `true`、`false` | `false` | 启用后，在当前 systemd 主版本高于 257 时从 `v257-stable` 构建兼容运行时；systemd 257 及更低版本自动跳过。构建完成后会锁定 systemd 相关包，避免再次升级覆盖。 |
@@ -118,7 +118,7 @@ KDE 模式说明：
 3. 选择中文工作流 `编译并发布 Droidspaces RootFS`，或英文工作流 `Build and Release Droidspaces RootFS`。
 4. 点击 `Run workflow`。
 5. 选择发行版、KDE 模式、用户名和功能开关。
-6. 如果要使用 Wayland/Anland，建议选择 `Ubuntu-26-KDE`、`Debian-13-KDE`、`Fedora-43-KDE` 或 `Fedora-44-KDE`，并开启 `enable_anland_kde`。
+6. 如果要使用 Wayland/Anland，建议选择 `Ubuntu-26-KDE`，也可选择 `Debian-13-KDE`、`Fedora-43-KDE`、`Fedora-44-KDE` 或 `Arch-KDE`，并开启 `enable_anland_kde`。
 7. 如果希望先重新构建 patched KWin/Xwayland 包，再构建 RootFS，开启 `build_wayland_packages`。
 8. 等待 Actions 完成。构建时间取决于目标数量、KDE 模式和 GitHub runner 状态。
 9. 打开 `Releases` 页面，下载生成的 `.tar.xz` RootFS。
@@ -198,7 +198,7 @@ startplasma-x11
 
 ### Wayland/Anland 模式
 
-Wayland/Anland 模式适用于启用 `enable_anland_kde` 的 Debian 13、Ubuntu 26、Fedora 43 和 Fedora 44 构建。默认环境变量包括：
+Wayland/Anland 模式适用于启用 `enable_anland_kde` 的 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch 构建。默认环境变量包括：
 
 ```text
 WAYLAND_DISPLAY=wayland-0
@@ -223,19 +223,29 @@ startplasmamobile
 
 ## Wayland 和 Anland 配置
 
-Wayland 支持依赖 [anland](https://github.com/superturtlee/anland) 以及本仓库内的 patched KWin/Xwayland 预编译包。建议使用 `Ubuntu-26-KDE`，也可以使用 `Debian-13-KDE`、`Fedora-43-KDE` 或 `Fedora-44-KDE`。Fedora 44 已稳定支持 Wayland/Anland；它使用 Fedora 43 的 Anland 构建脚本，但在 Fedora 44 容器内重新构建 RPM。
+Wayland 支持依赖 [anland](https://github.com/superturtlee/anland) 和 GitHub Releases 中的 patched KWin/Xwayland 预编译包。建议使用 `Ubuntu-26-KDE`，也可以使用 `Debian-13-KDE`、`Fedora-43-KDE`、`Fedora-44-KDE` 或 `Arch-KDE`。Arch 使用 `anland` 仓库中的 `producers/kde/Arch_v5/build.sh` 在 ARM64 Arch 容器内重建包。
 
-### 一键安装 anland-build 包
+### 一键安装 Anland KDE Release 包
 
-`anland-build/install.sh` 会自动识别当前发行版，安装对应的 patched KWin/Xwayland 包，并防止系统更新将它们覆盖。如果系统仓库中的版本更新，脚本会允许将相关包降级到本仓库的 patched 版本；已经 hold 的相关包也会在更新后重新设置 hold。
+`scripts/install-anland-kde.sh` 会自动识别当前发行版，从固定滚动 Release `anland-kde-packages` 的 `anland-kde-manifest` 精确选择对应的压缩包，按 KWin 版本下载 patched KWin/Xwayland 包，然后防止系统更新将它们覆盖。二进制包不会再加入 Git 历史；这个 Release 包含 Arch、Debian 13、Ubuntu 26、Fedora 43 和 Fedora 44 的五个独立压缩包，文件名形如 `anland-kde-ubuntu2604-kwin-6.7.3-arm64.tar.gz`。
 脚本会按 `LC_ALL`、`LC_MESSAGES`、`LANG` 的优先级读取系统语言：中文 locale 输出中文，其他 locale 输出英文。
 
-支持 Debian 13、Ubuntu 26.04、Fedora 43 和 Fedora 44，仅支持 ARM64/aarch64。Debian/Ubuntu 使用 `apt-mark hold`，Fedora 通过 `/etc/dnf/dnf.conf` 的 `exclude` 实现等效锁定。
+支持 Debian 13、Ubuntu 26.04、Fedora 43/44 和 Arch Linux，仅支持 ARM64/aarch64。安装器在普通用户权限下下载、预检和解包，再仅以 root 权限执行安装。Debian/Ubuntu 使用受脚本记录管理的 `apt-mark hold`，Fedora 通过 `/etc/dnf/dnf.conf` 的托管 `excludepkgs` 块，Arch 通过 pacman 的 `IgnorePkg` 实现等效锁定。
 
-在仓库根目录运行：
+从仓库根目录运行：
 
 ```bash
-sudo ./anland-build/install.sh
+sudo ./scripts/install-anland-kde.sh
+```
+
+启动后会按固定顺序测试 GitHub、`gh-proxy.com`、`ghproxy.net` 三个下载源；单个测试达到 2 秒会显示为超时，然后输入 `1`、`2` 或 `3` 选择下载源。选择第三方镜像时，下载的清单和归档都会以 GitHub Release API 公布的 SHA-256 digest 校验，因此需要系统具有 `jq`、`sha256sum`，且能访问 `api.github.com`。非交互场景可传入 `-1` 或 `--1` 直接使用 GitHub 并跳过测速；GitHub Actions 构建使用 `--1`。
+
+也可以直接获取安装器：
+
+```bash
+curl -fLO https://raw.githubusercontent.com/Goldzxcbug/Droidspaces-rootfs-KDE-builder/main/scripts/install-anland-kde.sh
+chmod +x install-anland-kde.sh
+sudo ./install-anland-kde.sh
 ```
 
 推荐构建选项：
@@ -293,7 +303,7 @@ usb-storage-passthrough
 sudo ./scripts/install-usb-manager.sh --user "$USER"
 ```
 
-与 `anland-build/install.sh` 一样，该脚本支持自动提权、中文/英文日志、本地源码优先和缺失时下载上游源码快照。省略 `--user` 时会依次尝试 `SUDO_USER`、当前登录用户和第一个普通用户。
+与 `scripts/install-anland-kde.sh` 一样，该脚本支持自动提权、中文/英文日志。省略 `--user` 时会依次尝试 `SUDO_USER`、当前登录用户和第一个普通用户。
 
 ## 本地构建
 
@@ -395,6 +405,7 @@ sudo download-firmware
 │   ├── bashrc.sh
 │   ├── download-firmware
 │   ├── install-usb-manager.sh
+│   ├── install-anland-kde.sh
 │   ├── nosnap.sh
 │   ├── systemd257.sh
 │   ├── on_aaudio_socket.sh
@@ -402,26 +413,20 @@ sudo download-firmware
 ├── scripts/binfmt/
 │   ├── qemu-binfmt-register.service
 │   └── qemu-binfmt-register.sh
-├── anland-build/
-│   ├── install.sh
-│   ├── Debian13/
-│   ├── Fedora43/
-│   ├── Fedora44/
-│   └── ubuntu2604/
 └── .github/workflows/
     ├── build-kde-wayland.yml
     ├── build-rootfs-releases-en.yml
-    ├──  build-rootfs-releases.yml
-    └── clear.yml
+    └── build-rootfs-releases.yml
 ```
 
-`anland-build/` 存放 patched KWin 和 Xwayland 预编译包以及一键安装脚本。`build-kde-wayland.yml` 可以重新构建这些包并提交回仓库。当前中文 RootFS workflow 文件名包含一个前导空格，路径为 `.github/workflows/ build-rootfs-releases.yml`。
+KDE 包只作为 GitHub Release 资产发布。手动运行 `build-kde-wayland.yml` 时，`build_target=all` 会固定一个 Anland 源提交并重新生成五个平台；若其中某个平台构建失败，工作流会从固定滚动 Release 沿用该平台的现有包，只更新成功的平台，并重写同一个 `anland-kde-packages` Release 的全部资产和 `anland-kde-manifest`。选择单个平台时只重新构建并替换该平台，其他四个压缩包保持不变。若固定 Release 不能提供完整的五平台资产，或本次没有任何新包成功生成，工作流会失败且不会更新 Release。它不会提交包或改写 `main`；固定滚动 Release 会被保留。
+首次创建固定滚动 Release 必须选择 `all` 并让五个平台全部成功；创建后，部分构建只会从该固定 Release 复用未替换的平台资产。
 
 ## 已知限制
 
-- Wayland/Anland 当前只覆盖 Debian 13、Ubuntu 26 和 Fedora 43/44。
-- Ubuntu 24、Ubuntu 25 和 Arch 当前按 X11 路径使用。
-- `mobile` 模式只允许 Debian 13、Ubuntu 26 和 Fedora 43/44。
+- Wayland/Anland 当前覆盖 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch。
+- Ubuntu 24 和 Ubuntu 25 当前按 X11 路径使用。
+- `mobile` 模式支持 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch。
 - 启用 Anland 后，工作流会关闭 PulseAudio 转发，因为 Anland App 自带音频路径。
 - Fedora 在部分设备上需要硬件访问，否则可能闪屏或崩溃。
 - Ubuntu 和 Debian 在未启用 `noseccomp` 或内核缺少 `USER_NS` 时，可能出现卡顿。

@@ -18,6 +18,9 @@ ARG ENABLE_anland_kde_ARG
 ARG ENABLE_8gen2_wayland_ARG
 ARG ENABLE_systemd257_ARG
 ARG USERNAME
+ARG ANLAND_KDE_RELEASE_REPOSITORY=Goldzxcbug/Droidspaces-rootfs-KDE-builder
+ARG ANLAND_KDE_RELEASE_TAG
+ARG ANLAND_KDE_PACKAGE_REVISION=unknown
 ######################################################
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -44,17 +47,15 @@ COPY scripts/bashrc.sh /etc/profile.d/ds-aliases.sh
 # 通用 Droidspaces USB Manager 安装器
 COPY scripts/install-usb-manager.sh /usr/local/sbin/install-droidspaces-usb-manager
 COPY scripts/systemd257.sh /usr/local/sbin/systemd257
-
-# 复制本仓库内预编译的 anland_kde deb 包
-COPY anland-build/Debian13/*.deb /tmp/anland-build/Debian13/
+COPY scripts/install-anland-kde.sh /usr/local/sbin/install-anland-kde
 
 # 赋予相关脚本可执行权限
-RUN chmod +x /usr/local/bin/download-firmware /etc/profile.d/ds-aliases.sh
+RUN chmod +x /usr/local/bin/download-firmware /etc/profile.d/ds-aliases.sh /usr/local/sbin/install-anland-kde
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # 核心工具组件
-    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch pciutils fuse3 \
+    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch \
     # 用户请求的基础开发/编辑工具
     git nano  sudo \
     # 网络与 SSH 工具
@@ -62,13 +63,13 @@ RUN apt-get update && \
     # 用于系统监控的 procps 进程工具
     procps \
     # 核心内核模块支持
-    kmod tzdata && \
+    kmod tzdata tar && \
     ############################################## KDE支持 ################################################
     # 最小化KDE
     if [ "$BUILD_KDE" = "min" ]; then \
         apt-get install -y --no-install-recommends \
         dbus-x11 x11-xserver-utils fonts-noto-cjk fonts-noto-color-emoji kde-plasma-desktop pipewire pipewire-pulse wireplumber powerdevil kscreen plasma-pa ark kwin-x11 upower konsole \
-        dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools desktop-base dbus-user-session; \
+        dolphin kate kinfocenter mesa-utils pulseaudio-utils vulkan-tools  desktop-base dbus-user-session; \
     fi && \
     # 精简KDE
     if [ "$BUILD_KDE" = "conc" ]; then \
@@ -98,22 +99,16 @@ RUN apt-get update && \
     fi && \
     ############################################## anland_kde(wayland) 支持 ################################################
     if [ "$ENABLE_anland_kde_ARG" = "true" ] && ([ "$BUILD_KDE" = "min" ] || [ "$BUILD_KDE" = "conc" ] || [ "$BUILD_KDE" = "mobile" ]); then \
-        echo "--> [开启] 正在安装 anland_kde..." && \
-        echo "--> [开启] 正在安装预编译的 kwin deb 包..." && \
-        if ! dpkg -i /tmp/anland-build/Debian13/*.deb; then \
-            apt-get install -f -y; \
+        if [ -z "$ANLAND_KDE_RELEASE_TAG" ]; then \
+            echo "错误：Docker 构建必须传入固定的 ANLAND_KDE_RELEASE_TAG。" >&2; \
+            exit 1; \
         fi && \
-        echo "--> [开启] 设置预编译 deb 包为 hold 模式，防止被 apt 更新覆盖..." && \
-        for f in /tmp/anland-build/Debian13/*.deb; do \
-            pkgname=$(dpkg-deb -f "$f" Package) && \
-            apt-mark hold "$pkgname" && \
-            echo "    hold: $pkgname"; \
-        done && \
-        echo "--> [开启] 清理临时文件..." && \
-        rm -rf /tmp/anland-build && \
+        echo "--> [开启] 正在安装 anland_kde..." && \
+        echo "--> [开启] 从固定滚动 Release 下载预编译包 (${ANLAND_KDE_PACKAGE_REVISION})..." && \
+        ANLAND_KDE_RELEASE_REPOSITORY="$ANLAND_KDE_RELEASE_REPOSITORY" \
+        ANLAND_KDE_RELEASE_TAG="$ANLAND_KDE_RELEASE_TAG" \
+        /usr/local/sbin/install-anland-kde --1 && \
         echo "--> [开启] anland_kde 支持已安装"; \
-    else \
-        rm -rf /tmp/anland-build; \
     fi && \
     ######################################################################################################
     #输入法 fcitx5 (可选)
@@ -131,7 +126,7 @@ RUN apt-get update && \
     ## 压缩工具扩展 (可选)
     if [ "$ENABLE_zip_ARG" = "true" ]; then \
         apt-get install -y --no-install-recommends \
-        zip unzip p7zip-full bzip2 xz-utils tar gzip zstd; \
+        zip unzip p7zip-full bzip2 xz-utils tar gzip; \
     fi && \
     ## docker (可选)
     if [ "$ENABLE_docker_ARG" = "true" ]; then \
@@ -147,30 +142,6 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# dwarfs
-RUN cd $(mktemp -d) && \
-    wget https://github.com/mhx/dwarfs/releases/download/v0.15.5/dwarfs-universal-0.15.5-Linux-aarch64 \
-        -O dwarfs-wrapper && \
-    install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper && \
-    rm dwarfs-wrapper
-
-# fuse config
-RUN echo "user_allow_other" >> /etc/fuse.conf
-
-# hangover + dxvk
-RUN HO_TMP_DIR="$(mktemp -d)" && \
-    cd $HO_TMP_DIR && \
-    wget https://github.com/mikugirls/hangover/releases/download/hangover-11.13/hangover_11.13_debian13_trixie_arm64.tar \
-        -O hangover.tar && \
-    tar -xf hangover.tar && \
-    dpkg -i *.deb || true && \
-    apt install -y --no-install-recommends -f && \
-    tar -xf dxvk-3.0.1.tar.gz && \
-    mkdir -p /usr/share/dxvk && \
-    cp -r dxvk-3.0.1/* /usr/share/dxvk/ && \
-    rm -r -d -f $HO_TMP_DIR
-
 
 # 强制配置使用 iptables-legacy（这是兼容 Android 内核的硬性要求）
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \

@@ -34,6 +34,29 @@ while getopts "i:v:K:L:P:a:b:c:d:e:f:g:h:j:n:S:t:u:A:" opt; do
 done
 
 : "${USERNAME:=Gold}"
+: "${ANLAND_KDE_RELEASE_REPOSITORY:=Goldzxcbug/Droidspaces-rootfs-KDE-builder}"
+: "${ANLAND_KDE_RELEASE_TAG:=}"
+: "${ANLAND_KDE_PACKAGE_REVISION:=}"
+ANLAND_KDE_ROLLING_RELEASE_TAG="anland-kde-packages"
+
+if [ "${BUILD_KDE:-}" = "mobile" ]; then
+  ENABLE_anland_kde="true"
+  PulseAudio="none"
+fi
+
+resolve_anland_kde_release_tag() {
+  case "$ANLAND_KDE_RELEASE_TAG" in
+    anland-kde-packages) return 0 ;;
+    '')
+      ANLAND_KDE_RELEASE_TAG="$ANLAND_KDE_ROLLING_RELEASE_TAG"
+      return 0
+      ;;
+    *)
+      echo "错误：ANLAND_KDE_RELEASE_TAG 必须是固定标签 anland-kde-packages。" >&2
+      return 1
+      ;;
+  esac
+}
 
 # 校验：检查是否传递了 Dockerfile 模板文件
 if [ -z "$DOCKERFILE" ]; then
@@ -60,6 +83,40 @@ echo " Ubuntu nosnap：$ENABLE_nosnap"
 echo " systemd 257 旧内核兼容：$ENABLE_systemd257"
 echo " 修复骁龙8 Gen 2 Wayland 花屏：$ENABLE_8gen2_wayland"
 echo "========================================================="
+
+if [ "$ENABLE_anland_kde" = "true" ]; then
+  if ! resolve_anland_kde_release_tag; then
+    exit 1
+  fi
+  if [ -z "$ANLAND_KDE_PACKAGE_REVISION" ]; then
+    if ! command -v curl >/dev/null 2>&1; then
+      echo "错误：启用 anland_kde 时需要 curl 读取 KDE 包 Release 清单。"
+      exit 1
+    fi
+    if ! RELEASE_MANIFEST="$(curl -fsSL --retry 3 --connect-timeout 20 \
+      "https://github.com/${ANLAND_KDE_RELEASE_REPOSITORY}/releases/download/${ANLAND_KDE_RELEASE_TAG}/anland-kde-manifest")"; then
+      echo "错误：无法下载 anland KDE 包 Release 清单。"
+      exit 1
+    fi
+    ANLAND_KDE_PACKAGE_REVISION="$(printf '%s\n' "$RELEASE_MANIFEST" | awk -F= '
+      $1 == "format" { format = substr($0, index($0, "=") + 1) }
+      $1 == "revision" { revision = substr($0, index($0, "=") + 1); revisions++ }
+      END {
+        if (format == "1" && revisions == 1 && revision ~ /^[A-Za-z0-9._-]+$/) {
+          print revision
+        }
+      }
+    ')"
+  fi
+
+  if [ -z "$ANLAND_KDE_PACKAGE_REVISION" ]; then
+    echo "错误：Release 清单缺少有效 revision。"
+    exit 1
+  fi
+  echo " Anland KDE 包 Release：$ANLAND_KDE_RELEASE_REPOSITORY @ $ANLAND_KDE_RELEASE_TAG"
+else
+  ANLAND_KDE_PACKAGE_REVISION="${ANLAND_KDE_PACKAGE_REVISION:-disabled}"
+fi
 
 # 1. 环境初始化（原生架构模式）
 echo "确保处于原生构建环境..."
@@ -116,6 +173,9 @@ docker buildx build \
   --build-arg ENABLE_systemd257_ARG="$ENABLE_systemd257" \
   --build-arg ENABLE_anland_kde_ARG="$ENABLE_anland_kde" \
   --build-arg ENABLE_8gen2_wayland_ARG="$ENABLE_8gen2_wayland" \
+  --build-arg ANLAND_KDE_RELEASE_REPOSITORY="$ANLAND_KDE_RELEASE_REPOSITORY" \
+  --build-arg ANLAND_KDE_RELEASE_TAG="$ANLAND_KDE_RELEASE_TAG" \
+  --build-arg ANLAND_KDE_PACKAGE_REVISION="$ANLAND_KDE_PACKAGE_REVISION" \
   --build-arg USERNAME="$USERNAME" \
   -f "$DOCKERFILE" \
   .

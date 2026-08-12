@@ -9,6 +9,8 @@ ARG ENABLE_zh_tz_ARG
 ARG ENABLE_binfmt_ARG
 ARG ENABLE_yj_ARG
 ARG ENABLE_mesa_ARG
+ARG ENABLE_anland_kde_ARG
+ARG ENABLE_8gen2_wayland_ARG
 ARG ENABLE_kfgj_ARG
 ARG ENABLE_zip_ARG
 ARG ENABLE_docker_ARG
@@ -16,12 +18,17 @@ ARG ENABLE_srf_ARG
 ARG ENABLE_tmoe_ARG
 ARG ENABLE_systemd257_ARG
 ARG USERNAME
+ARG ANLAND_KDE_RELEASE_REPOSITORY=Goldzxcbug/Droidspaces-rootfs-KDE-builder
+ARG ANLAND_KDE_RELEASE_TAG
+ARG ANLAND_KDE_PACKAGE_REVISION=unknown
 ######################################################
 
 COPY scripts/install-usb-manager.sh /usr/local/sbin/install-droidspaces-usb-manager
 COPY scripts/systemd257.sh /usr/local/sbin/systemd257
+COPY scripts/install-anland-kde.sh /usr/local/sbin/install-anland-kde
 
-RUN sed -i '/^#ParallelDownloads/s/^#//' /etc/pacman.conf && \
+RUN chmod +x /usr/local/sbin/install-anland-kde && \
+    sed -i '/^#ParallelDownloads/s/^#//' /etc/pacman.conf && \
     sed -i '/NoExtract.*locale/d' /etc/pacman.conf && \
     sed -i '/NoExtract.*i18n/d' /etc/pacman.conf && \
     pacman -Sy --noconfirm archlinux-keyring glibc && \
@@ -36,7 +43,7 @@ RUN sed -i '/^#ParallelDownloads/s/^#//' /etc/pacman.conf && \
     # 用于系统监控的 procps 进程工具
     procps-ng \
     # 核心内核模块支持
-    kmod tzdata && \
+    kmod tzdata tar && \
     ############################################## KDE支持 ################################################
     # 最小化KDE
     if [ "$BUILD_KDE" = "min" ]; then \
@@ -51,6 +58,21 @@ RUN sed -i '/^#ParallelDownloads/s/^#//' /etc/pacman.conf && \
         dolphin kate kinfocenter mesa-utils libpulse vulkan-tools aha clinfo dmidecode wayland-utils xorg-server \
         kfind plasma-systemmonitor filelight glmark2 vkmark systemsettings kscreenlocker kio-extras xdg-user-dirs dolphin-plugins ffmpegthumbs kdegraphics-thumbnailers \
         kimageformats plasma-browser-integration libcanberra gstreamer gst-plugins-base gst-plugins-good sound-theme-freedesktop chromium; \
+    fi && \
+    # 移动版 KDE
+    if [ "$BUILD_KDE" = "mobile" ]; then \
+        pacman -S --noconfirm --needed \
+        xorg-xrandr noto-fonts-cjk noto-fonts-emoji plasma-desktop plasma-workspace \
+        plasma-mobile plasma-settings plasma-camera plasma-keyboard plasma-nano \
+        kwin kwin-x11 qt6-wayland qt6-svg qt6-virtualkeyboard wayland-utils xorg-server \
+        pipewire pipewire-pulse wireplumber powerdevil plasma-pa upower \
+        kscreen ark konsole qmlkonsole dolphin kate kinfocenter mesa-utils libpulse vulkan-tools \
+        aha clinfo dmidecode kfind plasma-systemmonitor filelight glmark2 vkmark \
+        systemsettings kscreenlocker kio-extras xdg-user-dirs \
+        dolphin-plugins ffmpegthumbs kdegraphics-thumbnailers kimageformats \
+        plasma-browser-integration angelfish kclock libcanberra chromium \
+        gstreamer gst-plugins-base gst-plugins-good sound-theme-freedesktop \
+        polkit-kde-agent; \
     fi && \
     # Arch 强制安装，但是这玩意不开硬件访问会导致桌面闪退
     if [ "$BUILD_KDE" = "conc" ] || [ "$BUILD_KDE" = "min" ] ; then \
@@ -87,6 +109,19 @@ RUN sed -i '/^#ParallelDownloads/s/^#//' /etc/pacman.conf && \
         chmod -R 755 /usr/local/etc/tmoe-linux; \
     fi 
 
+# 启用 Anland 时从固定滚动 GitHub Release 安装 ARM64 patched KWin/Xwayland。
+RUN if [ "$ENABLE_anland_kde_ARG" = "true" ]; then \
+        if [ -z "$ANLAND_KDE_RELEASE_TAG" ]; then \
+            echo "A fixed ANLAND_KDE_RELEASE_TAG is required for Docker builds." >&2; \
+            exit 1; \
+        fi && \
+        echo "--> [enabled] Installing Anland KDE packages (${ANLAND_KDE_PACKAGE_REVISION})..." && \
+        ANLAND_KDE_RELEASE_REPOSITORY="$ANLAND_KDE_RELEASE_REPOSITORY" \
+        ANLAND_KDE_RELEASE_TAG="$ANLAND_KDE_RELEASE_TAG" \
+        /usr/local/sbin/install-anland-kde --1 && \
+        echo "--> [enabled] Anland KDE support installed"; \
+    fi
+
 # 配置 Locale 与 SSH
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     if [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
@@ -116,7 +151,7 @@ RUN /usr/local/sbin/install-droidspaces-usb-manager --user "${USERNAME}"
 # 为 droidspaces 的 su/su -l 入口建立完整的 systemd 用户会话。
 RUN for pam_file in /etc/pam.d/su /etc/pam.d/su-l; do \
         if ! grep -qE '^[[:space:]-]*session[[:space:]].*pam_systemd\.so' "$pam_file"; then \
-            sed -i '/^[[:space:]]*session[[:space:]].*pam_unix\.so/a session        optional        pam_systemd.so' "$pam_file"; \
+            sed -i '/^[[:space:]]*session[[:space:]].*pam_unix\.so/a\session        optional        pam_systemd.so' "$pam_file"; \
         fi; \
     done && \
     grep -qE '^[[:space:]]*session[[:space:]].*pam_env\.so' /etc/pam.d/su-l || \
@@ -125,13 +160,33 @@ RUN for pam_file in /etc/pam.d/su /etc/pam.d/su-l; do \
 # 添加环境变量
 RUN cat <<'EOF' > /etc/environment
 XCURSOR_SIZE=48
-DISPLAY=:5
 EOF
+RUN if [ "$ENABLE_anland_kde_ARG" != "true" ]; then \
+        echo 'DISPLAY=:5' >> /etc/environment; \
+    fi
 # 音频选择
 RUN if [ "$PulseAudio" = "socket" ]; then \
         echo "PULSE_SERVER=unix:/tmp/.pulse-socket" >> /etc/environment; \
     elif [ "$PulseAudio" = "tcp" ]; then \
         echo "PULSE_SERVER=tcp:127.0.0.1:4713" >> /etc/environment; \
+    fi
+
+RUN if [ "$ENABLE_anland_kde_ARG" = "true" ]; then \
+        echo 'WAYLAND_DISPLAY=wayland-0' >> /etc/environment; \
+        echo 'QT_QPA_PLATFORM=wayland' >> /etc/environment; \
+        echo 'ANLAND=1' >> /etc/environment; \
+        echo 'ANLAND_SOCKET=/run/display.sock' >> /etc/environment; \
+        echo 'ANLAND_DRM_DEVICE=/dev/dri/renderD128' >> /etc/environment; \
+        echo 'XWAYLAND_GBM_DEVICE=/dev/dri/renderD128' >> /etc/environment; \
+        if [ "$ENABLE_mesa_ARG" = "true" ]; then \
+            echo 'MESA_LOADER_DRIVER_OVERRIDE=kgsl' >> /etc/environment; \
+            echo 'GALLIUM_DRIVER=kgsl' >> /etc/environment; \
+            echo 'FD_FORCE_KGSL=1' >> /etc/environment; \
+        fi; \
+    fi
+
+RUN if [ "$ENABLE_8gen2_wayland_ARG" = "true" ]; then \
+        echo 'FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1' >> /etc/environment; \
     fi
 
 # 输入法与 KDE 开机自启动配置
@@ -160,14 +215,14 @@ SDL_IM_MODULE=fcitx5
 GLFW_IM_MODULE=fcitx
 EOF
 fi
-    if [ "$ENABLE_mesa_ARG" = "true" ] ; then
+    if [ "$ENABLE_mesa_ARG" = "true" ] && [ "$ENABLE_anland_kde_ARG" != "true" ] ; then
         cat <<'EOF' >> /etc/environment
 MESA_LOADER_DRIVER_OVERRIDE=kgsl
 TU_DEBUG=noconform
 EOF
     fi
     echo 'export XDG_RUNTIME_DIR=/run/user/$(id -u)' >> /home/${USERNAME}/.bashrc
-    if [ "$BUILD_KDE" = "min" ] || [ "$BUILD_KDE" = "conc" ] ; then
+    if { [ "$BUILD_KDE" = "min" ] || [ "$BUILD_KDE" = "conc" ]; } && [ "$ENABLE_anland_kde_ARG" != "true" ] ; then
     mkdir -p /home/${USERNAME}/.config
     cat <<'EOF' > /home/${USERNAME}/.config/kwinrc
 [Compositing]
@@ -175,7 +230,15 @@ Enabled=false
 EOF
     fi
     chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
-    if [ "$BUILD_KDE_plus" = "true" ] ; then
+    if [ "$BUILD_KDE_plus" = "true" ] && [ "$BUILD_KDE" = "mobile" ] ; then
+        install -Dm644 /tmp/droidspaces-start/plasma-mobile.service /etc/systemd/system/plasma-mobile.service
+        mkdir -p /etc/systemd/system/multi-user.target.wants
+        ln -sf /etc/systemd/system/plasma-mobile.service /etc/systemd/system/multi-user.target.wants/plasma-mobile.service
+    elif [ "$BUILD_KDE_plus" = "true" ] && [ "$ENABLE_anland_kde_ARG" = "true" ] ; then
+    install -Dm644 /tmp/droidspaces-start/plasma-wayland.service /etc/systemd/system/plasma-wayland.service
+    mkdir -p /etc/systemd/system/multi-user.target.wants
+    ln -sf /etc/systemd/system/plasma-wayland.service /etc/systemd/system/multi-user.target.wants/plasma-wayland.service
+    elif [ "$BUILD_KDE_plus" = "true" ] ; then
     install -Dm644 /tmp/droidspaces-start/plasma-x11.service /etc/systemd/system/plasma-x11.service
     mkdir -p /etc/systemd/system/multi-user.target.wants
     ln -sf /etc/systemd/system/plasma-x11.service /etc/systemd/system/multi-user.target.wants/plasma-x11.service
