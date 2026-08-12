@@ -145,7 +145,7 @@ RUN apt-get update && \
 
 # dwarfs
 RUN cd $(mktemp -d) && \
-    wget https://github.com/mhx/dwarfs/releases/download/v0.15.5/dwarfs-universal-0.15.5-Linux-aarch64 \
+    wget https://github.com/mhx/dwarfs/releases/download/v0.15.6/dwarfs-universal-0.15.6-Linux-aarch64 \
         -O dwarfs-wrapper && \
     install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper && \
     rm dwarfs-wrapper
@@ -156,14 +156,14 @@ RUN echo "user_allow_other" >> /etc/fuse.conf
 # hangover + dxvk
 RUN HO_TMP_DIR="$(mktemp -d)" && \
     cd $HO_TMP_DIR && \
-    wget https://github.com/mikugirls/hangover/releases/download/hangover-11.13/hangover_11.13_debian13_trixie_arm64.tar \
+    wget https://github.com/mikugirls/hangover/releases/download/hangover-11.15/hangover_11.15_debian13_trixie_arm64.tar\
         -O hangover.tar && \
     tar -xf hangover.tar && \
     dpkg -i *.deb || true && \
     apt install -y --no-install-recommends -f && \
-    tar -xf dxvk-3.0.1.tar.gz && \
+    tar -xf dxvk-3.0.2.tar.gz && \
     mkdir -p /usr/share/dxvk && \
-    cp -r dxvk-3.0.1/* /usr/share/dxvk/ && \
+    cp -r dxvk-3.0.2/* /usr/share/dxvk/ && \
     rm -r -d -f $HO_TMP_DIR
 
 
