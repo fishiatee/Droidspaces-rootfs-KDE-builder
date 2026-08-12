@@ -160,7 +160,7 @@ RUN HO_TMP_DIR="$(mktemp -d)" && \
         -O hangover.tar && \
     tar -xf hangover.tar && \
     dpkg -i *.deb || true && \
-    apt install -y --no-install-recommends -f && \
+    apt install -y --no-install-recommends libgphoto2-6t64 libgphoto2-port12t64 libgstreamer-plugins-base1.0-0 libgstreamer1.0-0 libsane1 && \
     tar -xf dxvk-3.0.2.tar.gz && \
     mkdir -p /usr/share/dxvk && \
     cp -r dxvk-3.0.2/* /usr/share/dxvk/ && \
