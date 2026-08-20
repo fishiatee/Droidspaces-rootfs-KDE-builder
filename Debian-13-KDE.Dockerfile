@@ -145,27 +145,13 @@ RUN apt-get update && \
 
 # dwarfs
 RUN cd $(mktemp -d) && \
-    wget https://github.com/mhx/dwarfs/releases/download/v0.15.6/dwarfs-universal-0.15.6-Linux-aarch64 \
+    wget https://github.com/mhx/dwarfs/releases/download/v0.15.7/dwarfs-universal-0.15.7-Linux-aarch64 \
         -O dwarfs-wrapper && \
     install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper && \
     rm dwarfs-wrapper
 
 # fuse config
 RUN echo "user_allow_other" >> /etc/fuse.conf
-
-# hangover + dxvk
-RUN HO_TMP_DIR="$(mktemp -d)" && \
-    cd $HO_TMP_DIR && \
-    wget https://github.com/mikugirls/hangover/releases/download/hangover-11.15/hangover_11.15_debian13_trixie_arm64.tar\
-        -O hangover.tar && \
-    tar -xf hangover.tar && \
-    dpkg -i *.deb || true && \
-    apt install -y --no-install-recommends libgphoto2-6t64 libgphoto2-port12t64 libgstreamer-plugins-base1.0-0 libgstreamer1.0-0 libsane1 && \
-    tar -xf dxvk-3.0.2.tar.gz && \
-    mkdir -p /usr/share/dxvk && \
-    cp -r dxvk-3.0.2/* /usr/share/dxvk/ && \
-    rm -r -d -f $HO_TMP_DIR
-
 
 # 强制配置使用 iptables-legacy（这是兼容 Android 内核的硬性要求）
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
