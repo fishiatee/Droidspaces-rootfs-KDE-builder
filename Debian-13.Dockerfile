@@ -60,7 +60,7 @@ RUN chmod +x /usr/local/bin/download-firmware /etc/profile.d/ds-aliases.sh /usr/
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # 核心工具组件
-    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch \
+    bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch fuse3 \
     # 用户请求的基础开发/编辑工具
     git nano  sudo \
     # 网络与 SSH 工具
@@ -134,6 +134,16 @@ RUN sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && \
     # 如果容器内存在默认的 debian 用户，则将其连同家目录一起删除
     (deluser --remove-home debian || true) && \
     useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:1234" | chpasswd
+
+# dwarfs
+RUN cd $(mktemp -d) && \
+    wget https://github.com/mhx/dwarfs/releases/download/v0.15.7/dwarfs-universal-0.15.7-Linux-aarch64 \
+        -O dwarfs-wrapper && \
+    install -m 755 dwarfs-wrapper /usr/bin/dwarfs-wrapper && \
+    rm dwarfs-wrapper
+
+# fuse config
+RUN echo "user_allow_other" >> /etc/fuse.conf
 
 # 为所有 Debian RootFS 安装 Droidspaces USB Manager
 RUN /usr/local/sbin/install-droidspaces-usb-manager --user "${USERNAME}"
