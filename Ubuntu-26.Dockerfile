@@ -44,6 +44,10 @@ COPY scripts/install-usb-manager.sh /usr/local/sbin/install-droidspaces-usb-mana
 COPY scripts/tui/install-anland-kde.sh /usr/local/sbin/install-anland-kde
 COPY scripts/tui/install-anland-gnome.sh /usr/local/sbin/install-anland-gnome
 COPY scripts/tui/install-anland-next.sh /usr/local/sbin/install-anland-next
+COPY scripts/tui/install-anland-niri.sh /usr/local/sbin/install-anland-niri
+COPY scripts/tui/install-anland-hyprland.sh /usr/local/sbin/install-anland-hyprland
+COPY scripts/tui/install-anland-mango.sh /usr/local/sbin/install-anland-mango
+COPY scripts/tui/install-anland-denial.sh /usr/local/sbin/install-anland-denial
 COPY scripts/install-anland-desktop.sh /usr/local/sbin/install-anland-desktop
 COPY scripts/tui/install-mesa.sh /usr/local/sbin/install-mesa
 COPY scripts/tui/install-hangover-wine.sh /usr/local/sbin/install-hangover-wine
@@ -54,11 +58,21 @@ COPY scripts/configure-desktop.sh /usr/local/sbin/configure-desktop
 COPY scripts/configure-chrome.sh /usr/local/sbin/configure-chrome
 COPY scripts/start-desktop-session.sh /usr/local/bin/start-desktop-session
 COPY scripts/desktops/ /usr/local/lib/droidspaces/desktops/
+COPY scripts/etc/wireplumber/wireplumber.conf.d/Anland-Audio.conf /tmp/Anland-Audio.conf
+RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
+        install -D -m 0644 /tmp/Anland-Audio.conf /etc/wireplumber/wireplumber.conf.d/Anland-Audio.conf; \
+    fi && \
+    rm -f /tmp/Anland-Audio.conf
 
 # 赋予相关脚本可执行权限
 RUN chmod +x /usr/local/bin/download-firmware /usr/local/sbin/nosnap /etc/profile.d/ds-aliases.sh /usr/local/sbin/install-anland-* /usr/local/sbin/install-mesa /usr/local/sbin/install-hangover-wine /usr/local/sbin/install-winefonts /usr/local/sbin/install-desktop /usr/local/sbin/configure-desktop /usr/local/sbin/configure-chrome /usr/local/bin/droidspaces-tui /usr/local/bin/start-desktop-session /usr/local/lib/droidspaces/desktops/*.sh && \
     ln -s droidspaces-tui /usr/local/bin/dstui && \
     ln -s droidspaces-tui /usr/local/bin/ds-tui
+
+# Ubuntu 基础镜像默认通过 dpkg path-exclude 跳过 .mo 翻译文件；全局放开，
+# 保证所有桌面 profile 安装的软件带完整语言翻译。
+RUN sed -i 's|^path-exclude=/usr/share/locale/\*/LC_MESSAGES/\*.mo|#&|' \
+        /etc/dpkg/dpkg.cfg.d/excludes 2>/dev/null || true
 
 RUN sed -i 's/Components: main/Components: main restricted universe multiverse/g' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || \
     sed -i 's/main/main restricted universe multiverse/g' /etc/apt/sources.list 2>/dev/null && \
